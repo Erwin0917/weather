@@ -1,2 +1,2 @@
-# weather
-Porównywanie pogody z różnych serwisó
+# Weather
+Porównywanie pogody z różnych serwisów
