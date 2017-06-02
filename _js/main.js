@@ -41,7 +41,7 @@ class getData {
 
 
     }
-    getJSONforCityName(url) {
+    getJSONforSpecialData(url, fnsucces, fnerror) {
         const xhr = new XMLHttpRequest();
 
         let data = null;
@@ -51,7 +51,8 @@ class getData {
         xhr.onreadystatechange = function() {
             if (xhr.readyState === 4 && xhr.status >= 200 && xhr.status < 300) {
                 data = JSON.parse(xhr.response);
-                getCityLocation(data);
+                fnsucces(data);
+
 
 
 
@@ -83,7 +84,7 @@ function getCityData(arr) {
 
         for (let obj of arr) {
 
-            console.log(obj);
+            console.log(arr);
 
             /* Dane dla api openweathermap */
             if (obj.name) {
@@ -150,8 +151,75 @@ function getCityData(arr) {
                 createNodeBox(cityData);
                 cityData = {};
 
-                /* Dane pogodowe dla api wunderground */
-            } else if (obj.response) {
+                /* Dane pogodowe dla api apixu */
+            } else if (obj.current && obj.location) {
+                let { current } = obj;
+                let {
+
+                    temp_c: temp,
+                    pressure_mb: pressure
+                } = current;
+                let {
+                    name: cityName,
+                    lat,
+                    lon
+
+                } = obj.location;
+
+                cityData = ({
+                    cityName,
+                    lat,
+                    lon,
+                    pressure,
+                    temp
+                });
+                createNodeBox(cityData);
+                cityData = {};
+
+
+
+                /* Dane pogodowe dla api accuweather */
+            } else if (obj[0].ApparentTemperature || obj[0].AdministrativeArea) {
+                cityData = {};
+                if (obj[0].ApparentTemperature) {
+                    let {
+                        Pressure: {
+                            Metric: {
+                                Value: pressure
+                            }
+                        },
+                        RealFeelTemperature: {
+                            Metric: {
+                                Value: temp
+                            }
+                        }
+
+                    } = obj[0];
+                    cityData = { temp, pressure }
+                } else if (obj[0].AdministrativeArea) {
+                    let {
+                        LocalizedName: cityName,
+                        GeoPosition: {
+                            Latitude: lat,
+                            Longitude: lon
+                        }
+
+                    } = obj[0];
+                    cityData = { cityName, lat, }
+                }
+
+                cityData = ({
+                    cityName,
+                    lat,
+                    lon,
+                    pressure,
+                    temp
+                });
+                createNodeBox(cityData);
+                cityData = {};
+
+
+
 
             } else console.log("ten obiekt nie posiada lokalizacji")
 
@@ -399,8 +467,23 @@ function replaceLatin(w) {
 function createCitiesArr(city, country) {
     let cityCode = encodeURI(city),
         locationData = new getData(),
-        cityLocat = locationData.getJSONforCityName(`https://maps.googleapis.com/maps/api/geocode/json?address=${cityCode}&key=AIzaSyBOcdzymZk4GJtOABc4LSKl-Ks7ny2HMuk`);
+        cityLocat = locationData.getJSONforSpecialData(`https://maps.googleapis.com/maps/api/geocode/json?address=${cityCode}&key=AIzaSyBOcdzymZk4GJtOABc4LSKl-Ks7ny2HMuk`, getCityLocation);
 
+}
+
+function getCityIDforACCU(city) {
+    let cityCode = encodeURI(city),
+        locationData = new getData(),
+        cityID,
+        cityObj = locationData.getJSONforSpecialData(`http://dataservice.accuweather.com/locations/v1/cities/search?apikey=7HBJlwnqyzNQfqmL77apovYXF42AFLxW&q=${cityCode}&language=pl-pl&details=true`,
+            function(cityObj) {
+                for (let obj of cityObj) {
+                    cityID = obj.Key;
+                    dataArr.push(cityObj);
+                }
+
+            });
+    return cityID;
 }
 
 function APIrqs(lat, lon, city) {
@@ -408,10 +491,16 @@ function APIrqs(lat, lon, city) {
 
     let cityCode = encodeURI(city);
     let cityNoLatinCode = encodeURI(findLatin(city));
+
+    let cityID = getCityIDforACCU(city); // <--- pobranie ID miasta
+
+
+
+
     let allDataURL = [`http://api.openweathermap.org/data/2.5/weather?q=${cityCode}&appid=b6beecbfb5b41605c6ed8a089fa7b0a4`,
         `http://api.wunderground.com/api/4480b6203d6939a1/conditions/q/PL/${cityNoLatinCode}.json`,
         `https://api.apixu.com/v1/current.json?key=212fb62a1a164a11a20125949170106&q=${cityCode}`,
-        `http://dataservice.accuweather.com/locations/v1/cities/search?apikey=7HBJlwnqyzNQfqmL77apovYXF42AFLxW&q=${cityCode}&language=pl-pl&details=true`
+        `http://dataservice.accuweather.com/currentconditions/v1/${cityID}?apikey=7HBJlwnqyzNQfqmL77apovYXF42AFLxW&language=pl-pl&details=true`
 
 
     ];
